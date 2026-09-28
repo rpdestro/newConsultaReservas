@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Página para consulta de Reservas Orçamentárias, Prefeitura de Botucatu">
+    <meta name="author" content="Renato Pinheiro Destro">
+    <title>Reservas Orçamentárias</title>
+
+    <!-- Diagnóstico: mostra na tela arquivos não encontrados e erros de JavaScript.
+         Fica ANTES das bibliotecas para capturar falhas de carregamento. -->
+    <script>
+        window.mostrarAviso = function (mensagem) {
+            function escrever() {
+                var aviso = document.getElementById('avisoErro');
+                if (!aviso) return false;
+                aviso.hidden = false;
+                var linha = document.createElement('div');
+                linha.textContent = mensagem;
+                aviso.appendChild(linha);
+                return true;
+            }
+            if (!escrever()) document.addEventListener('DOMContentLoaded', escrever);
+        };
+        window.addEventListener('error', function (e) {
+            var alvo = e.target || {};
+            if (alvo.tagName === 'SCRIPT' || alvo.tagName === 'LINK') {
+                window.mostrarAviso('Arquivo não carregado: ' + (alvo.src || alvo.href));
+            } else if (e.message && e.message !== 'Script error.') {
+                window.mostrarAviso('Erro de JavaScript: ' + e.message + ' (' +
+                    String(e.filename || '').split('/').pop() + ', linha ' + e.lineno + ')');
+            }
+        }, true);
+    </script>
+
+    <link rel="stylesheet" href="style.css">
+
+    <!-- Bibliotecas externas com VERSÃO FIXA (evita quebras por atualização automática).
+         Para uso sem internet, veja LEIAME.md. -->
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+</head>
+<body>
+
+<header class="app-header">
+    <div class="header-title-container">
+        <span class="header-orgao">Departamento de Planejamento e Orçamento</span>
+        <h1>Consulta de reservas orçamentárias</h1>
+    </div>
+    <div class="header-actions">
+        <button type="button" id="btnDarkMode" class="btn-theme-toggle" title="Alternar tema">🌙 Escuro</button>
+        <div class="header-subtitle" id="versaoApp"></div>
+    </div>
+</header>
+
+<nav class="abas" role="tablist" aria-label="Seções da página">
+    <button type="button" role="tab" class="aba" id="tabConsulta" data-aba="consulta"
+            aria-controls="abaConsulta" aria-selected="true">Consulta de reservas</button>
+    <button type="button" role="tab" class="aba" id="tabPainel" data-aba="painel"
+            aria-controls="abaPainel" aria-selected="false" tabindex="-1">
+        Painel por secretaria e fonte
+        <span class="aba-indicador oculto" id="indicadorFiltro" title="Há filtros ou pesquisa ativos">filtrado</span>
+    </button>
+</nav>
+
+<main class="container" id="abaConsulta" role="tabpanel" aria-labelledby="tabConsulta">
+
+    <div class="dashboard-layout">
+        <div class="dashboard-left">
+            <div class="card-banner roxo">
+                <h4>Valor total reservado (filtrado)</h4>
+                <div class="valor" id="bannerValorReserva">R$ 0,00</div>
+            </div>
+
+            <div class="dashboard-chart-container oculto" id="painelGrafico">
+                <canvas id="graficoReservas"></canvas>
+            </div>
+        </div>
+
+        <div class="dashboard-panel oculto" id="painelDashboard">
+            <div class="dashboard-grid-kpi" id="containerCardsDinamicos"></div>
+        </div>
+    </div>
+
+    <div class="top-sections">
+        <div class="import-section">
+            <h3 class="section-title">1. Carregar arquivo</h3>
+            <!-- O <input> fica escondido visualmente, mas continua acessível pelo teclado (Tab + Enter) -->
+            <label for="uploadExcel" class="dropzone" id="areaUpload">
+                <input type="file" id="uploadExcel" accept=".xls,.xlsx,.csv" class="visualmente-oculto">
+                <span class="dropzone-icone" aria-hidden="true">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/>
+                        <path d="M14 3v5h5"/>
+                        <path d="M9 13h6M9 17h6M12 11v8"/>
+                    </svg>
+                </span>
+                <span class="dropzone-texto">
+                    <strong id="uploadTitulo">Selecione o relatório de reservas</strong>
+                    <span id="uploadDetalhe">Clique aqui ou arraste o arquivo (.xls, .xlsx ou .csv)</span>
+                </span>
+                <span class="dropzone-botao" id="uploadBotao" aria-hidden="true">Procurar</span>
+            </label>
+            <p id="statusDados" class="status-dados"></p>
+            <div id="avisoComparacao" class="aviso-comparacao oculto">
+                <span id="textoComparacao"></span>
+                <button type="button" class="link-acao" id="btnVerComparacao">Ver comparação</button>
+            </div>
+        </div>
+        <div class="filter-section">
+            <h3 class="section-title">2. Ações</h3>
+            <button type="button" class="btn btn-success" id="btnNovaReserva">+ Nova reserva</button>
+            <button type="button" class="btn btn-danger" id="btnLimparFiltros">Limpar filtros</button>
+            <button type="button" class="btn btn-danger" id="btnLimparDados">Limpar dados</button>
+            <button type="button" class="btn" id="btnExportar">Exportar (XLSX)</button>
+            <button type="button" class="btn btn-secondary" id="btnRelatorio" title="Relatório dos banners para imprimir ou salvar em PDF">Relatório</button>
+            <button type="button" class="btn btn-secondary" id="btnComparar" title="Compare com a importação anterior ou escolha dois arquivos">Comparar arquivos</button>
+        </div>
+    </div>
+
+    <div class="print-tabela-wrapper">
+        <div class="table-header-flex">
+            <h3 class="table-heading">Dados do sistema Fiorilli</h3>
+            <div class="busca-rapida" id="caixaBusca" role="search">
+                <svg class="busca-icone" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+                </svg>
+                <input type="text" id="pesquisaRapida" autocomplete="off" spellcheck="false" enterkeyhint="search"
+                       placeholder="Pesquisa rápida: reserva, histórico, processo, secretaria, valor..."
+                       aria-label="Pesquisa rápida em todas as colunas">
+                <kbd class="busca-atalho" title="Atalho: tecla /">/</kbd>
+                <button type="button" id="btnLimparBusca" class="busca-limpar oculto" aria-label="Limpar pesquisa">&times;</button>
+            </div>
+            <span id="infoRegistros" class="info-registros"></span>
+        </div>
+
+        <div class="periodo" id="caixaPeriodo" role="group" aria-label="Filtrar por período">
+            <span class="periodo-rotulo">Período</span>
+            <input type="date" id="periodoDe" aria-label="Data inicial">
+            <span class="periodo-a">a</span>
+            <input type="date" id="periodoAte" aria-label="Data final">
+            <button type="button" id="btnLimparPeriodo" class="periodo-limpar oculto" aria-label="Limpar período">&times;</button>
+            <span class="periodo-atalhos">
+                <button type="button" data-periodo="30">Últimos 30 dias</button>
+                <button type="button" data-periodo="mes">Este mês</button>
+                <button type="button" data-periodo="ano">Este ano</button>
+            </span>
+        </div>
+
+        <div class="table-container">
+            <table id="tabelaDados">
+                <thead>
+                    <tr>
+                        <th class="col-acoes header-center">Ações</th>
+                        <th class="header-center">Data</th>
+                        <th class="header-center">Reserva</th>
+                        <th class="header-center">Histórico</th>
+                        <th class="header-center">Ficha</th>
+                        <th class="header-center">UO</th>
+                        <th class="header-center">Natureza Desp.</th>
+                        <th class="header-center">UE</th>
+                        <th class="header-center">Processo</th>
+                        <th class="header-center">Valor Reserva</th>
+                        <th class="header-center">Fonte</th>
+                        <th class="header-center">Saldo Reserva</th>
+                        <th class="header-center">Saldo Atual</th>
+                        <th class="header-center" title="Empenhado da ficha: repete-se em todas as reservas da ficha">Empenhado (ficha)</th>
+                    </tr>
+                    <tr class="header-filter-row">
+                        <th class="col-acoes"></th>
+                        <th><div id="filtro_Data" class="multi-select"></div></th>
+                        <th><div id="filtro_Reserva" class="multi-select"></div></th>
+                        <th><div id="filtro_Historico" class="multi-select"></div></th>
+                        <th><div id="filtro_Ficha" class="multi-select"></div></th>
+                        <th><div id="filtro_UO" class="multi-select"></div></th>
+                        <th><div id="filtro_NaturezaDespesa" class="multi-select"></div></th>
+                        <th><div id="filtro_UE" class="multi-select"></div></th>
+                        <th><div id="filtro_Processo" class="multi-select"></div></th>
+                        <th><div id="filtro_ValorReserva" class="multi-select"></div></th>
+                        <th><div id="filtro_Fonte" class="multi-select"></div></th>
+                        <th><div id="filtro_SaldoReserva" class="multi-select"></div></th>
+                        <th><div id="filtro_SaldoAtual" class="multi-select"></div></th>
+                        <th><div id="filtro_ValorEmpenhado" class="multi-select"></div></th>
+                    </tr>
+                </thead>
+                <tbody id="tabelaCorpo"></tbody>
+                <tfoot id="tabelaRodapeSubtotal" class="linha-subtotal"></tfoot>
+            </table>
+        </div>
+    </div>
+</main>
+
+<!-- Aba 2: Painel por secretaria e fonte (conteúdo montado por painel.js) -->
+<main class="container painel" id="abaPainel" role="tabpanel" aria-labelledby="tabPainel">
+    <div class="painel-cabecalho">
+        <div>
+            <h2 class="painel-titulo">Valor Reservado por Secretaria e Fonte de Recurso</h2>
+            <p class="painel-subtitulo">Os valores acompanham os filtros, o período e a pesquisa da aba Consulta.</p>
+        </div>
+        <button type="button" class="btn btn-secondary painel-acoes" id="btnRelatorioPainel" title="Relatório para imprimir ou salvar em PDF">Relatório</button>
+    </div>
+    <div id="conteudoPainel"></div>
+</main>
+
+<div class="area-carregar-mais">
+    <button type="button" id="btnCarregarMais" class="btn btn-carregar-mais oculto">Carregar mais</button>
+</div>
+
+<!-- Modal: Ficha da Reserva -->
+<div class="modal-overlay" id="modalDetalhes" role="dialog" aria-modal="true" aria-labelledby="tituloFicha">
+    <div class="modal-content modal-estreito">
+        <div class="modal-header">
+            <h3 id="tituloFicha">Ficha da reserva</h3>
+            <button type="button" class="modal-close-btn" id="btnFecharDetalhes" aria-label="Fechar">&times;</button>
+        </div>
+        <div class="modal-body print-area" id="conteudoDetalhes"></div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btnImprimirFicha">Imprimir ficha</button>
+            <button type="button" class="btn" id="btnFecharDetalhesBottom">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Formulário de Inclusão/Edição -->
+<div class="modal-overlay" id="modalFormulario" role="dialog" aria-modal="true" aria-labelledby="modalTitulo">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitulo">Nova reserva</h3>
+            <button type="button" class="modal-close-btn" id="btnFecharModal" aria-label="Fechar">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="formReserva" novalidate>
+                <input type="hidden" id="editId" value="">
+
+                <div class="form-section-title">Informações gerais</div>
+                <div class="form-grid-modern">
+                    <div class="form-group">
+                        <label for="form_Data">Data</label>
+                        <div class="date-input-container">
+                            <input type="date" id="form_Data">
+                            <button type="button" class="btn btn-secondary btn-today" id="btnDataHoje" title="Preencher com a data de hoje">Hoje</button>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label for="form_Reserva">Reserva *</label>
+                        <input type="text" id="form_Reserva" placeholder="Nº da Reserva" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="form_Processo">Processo</label>
+                        <input type="text" id="form_Processo" placeholder="Nº do Processo">
+                    </div>
+                    <div class="form-group span-2">
+                        <label for="form_Historico">Histórico</label>
+                        <input type="text" id="form_Historico" placeholder="Descrição do histórico...">
+                    </div>
+                    <div class="form-group">
+                        <label for="form_Ficha">Ficha</label>
+                        <input type="text" id="form_Ficha" placeholder="Ficha">
+                    </div>
+                </div>
+
+                <div class="form-section-title">Estrutura orçamentária</div>
+                <div class="form-grid-modern">
+                    <div class="form-group">
+                        <label for="form_UO">UO (Unidade Orçamentária)</label>
+                        <input type="text" id="form_UO" placeholder="UO">
+                    </div>
+                    <div class="form-group">
+                        <label for="form_UE">UE (Unidade Executora)</label>
+                        <input type="text" id="form_UE" placeholder="UE">
+                    </div>
+                    <div class="form-group">
+                        <label for="form_Fonte">Fonte</label>
+                        <input type="text" id="form_Fonte" placeholder="Fonte">
+                    </div>
+                    <div class="form-group span-2">
+                        <label for="form_NaturezaDespesa">Natureza de Despesa</label>
+                        <input type="text" id="form_NaturezaDespesa" placeholder="Natureza de Despesa">
+                    </div>
+                </div>
+
+                <div class="form-section-title">Valores financeiros</div>
+                <div class="form-grid-modern">
+                    <div class="form-group">
+                        <label for="form_ValorReserva">Valor Reserva</label>
+                        <input type="text" id="form_ValorReserva" placeholder="0,00" class="input-money" inputmode="numeric">
+                    </div>
+                    <div class="form-group">
+                        <label for="form_SaldoReserva">Saldo Reserva</label>
+                        <input type="text" id="form_SaldoReserva" placeholder="0,00" class="input-money" inputmode="numeric">
+                    </div>
+                    <div class="form-group">
+                        <label for="form_SaldoAtual">Saldo Atual</label>
+                        <input type="text" id="form_SaldoAtual" placeholder="0,00" class="input-money" inputmode="numeric">
+                    </div>
+                    <div class="form-group">
+                        <label for="form_ValorEmpenhado">Empenhado da ficha</label>
+                        <input type="text" id="form_ValorEmpenhado" placeholder="0,00" class="input-money" inputmode="numeric">
+                    </div>
+                </div>
+            </form>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" id="btnCancelarModal">Cancelar</button>
+            <button type="button" class="btn btn-success" id="btnSalvarReserva">Salvar reserva</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Comparação (última importação ou dois arquivos escolhidos) -->
+<div class="modal-overlay" id="modalComparacao" role="dialog" aria-modal="true" aria-labelledby="tituloComparacao" data-sem-fechar-fora>
+    <div class="modal-content">
+        <!-- Tela cheia: barra fixa no topo com as ações; o conteúdo rola numa única barra -->
+        <div class="modal-header">
+            <h3 id="tituloComparacao">Comparação com a importação anterior</h3>
+            <div class="cmp-barra-acoes">
+                <button type="button" class="btn" id="btnExportarComparacao">Exportar comparação (XLSX)</button>
+                <button type="button" class="btn btn-secondary" id="btnFecharComparacao">Fechar</button>
+            </div>
+        </div>
+        <div class="modal-body">
+          <div class="cmp-pagina">
+            <!-- Controles ficam FORA de #conteudoComparacao, que é redesenhado a cada troca de aba -->
+            <div class="cmp-controles">
+                <div class="cmp-modos" role="radiogroup" aria-label="Tipo de comparação">
+                    <label class="cmp-modo"><input type="radio" name="cmpModo" value="auto" checked> Última importação</label>
+                    <label class="cmp-modo"><input type="radio" name="cmpModo" value="manual"> Comparar dois arquivos</label>
+                </div>
+
+                <div class="cmp-manual" id="cmpManual" hidden>
+                    <div class="cmp-campo-arquivo">
+                        <span class="cmp-campo-titulo">Arquivo A <small>(mais antigo)</small></span>
+                        <label class="btn btn-secondary cmp-escolher">
+                            Escolher arquivo
+                            <input type="file" id="cmpArquivoA" class="cmp-input-oculto" accept=".xls,.xlsx,.csv">
+                        </label>
+                        <span class="cmp-nome" id="cmpNomeA">Nenhum arquivo escolhido</span>
+                    </div>
+                    <div class="cmp-campo-arquivo">
+                        <span class="cmp-campo-titulo">Arquivo B <small>(mais recente)</small></span>
+                        <label class="btn btn-secondary cmp-escolher">
+                            Escolher arquivo
+                            <input type="file" id="cmpArquivoB" class="cmp-input-oculto" accept=".xls,.xlsx,.csv">
+                        </label>
+                        <span class="cmp-nome" id="cmpNomeB">Nenhum arquivo escolhido</span>
+                    </div>
+                    <div class="cmp-acoes">
+                        <button type="button" class="btn" id="btnCmpComparar" disabled>Comparar</button>
+                        <button type="button" class="btn btn-secondary" id="btnCmpInverter" disabled>Inverter A ↔ B</button>
+                        <button type="button" class="btn btn-secondary" id="btnCmpLimpar" disabled>Limpar</button>
+                    </div>
+                </div>
+
+                <div class="cmp-mensagem" id="cmpMensagem" aria-live="polite" hidden></div>
+            </div>
+
+            <div id="conteudoComparacao"></div>
+          </div>
+        </div>
+    </div>
+</div>
+
+<!-- Visualização dos relatórios (fundo sempre claro; impressão e PDF) -->
+<div id="areaRelatorio" class="relatorio-visualizacao" role="dialog" aria-modal="true" aria-labelledby="rvTitulo" hidden>
+    <div class="rv-barra">
+        <div class="rv-barra-texto">
+            <strong id="rvTitulo">Relatório</strong>
+            <span>Na janela de impressão, escolha a impressora ou “Salvar como PDF”.</span>
+        </div>
+        <button type="button" class="btn btn-success" id="btnRvImprimir">Imprimir ou salvar PDF</button>
+        <button type="button" class="btn btn-secondary" id="btnRvFechar">Fechar</button>
+    </div>
+    <div class="rv-folha" id="rvFolha"></div>
+</div>
+
+<div id="avisoErro" class="aviso-erro" role="alert" hidden></div>
+
+<!-- Scripts da aplicação: devem estar NA MESMA PASTA do index.html (a ordem importa) -->
+<script src="config.js"></script>
+<script src="utils.js"></script>
+<script src="dica.js"></script>
+<script src="estado.js"></script>
+<script src="execucao.js"></script>
+<script src="importacao.js"></script>
+<script src="filtros.js"></script>
+<script src="comparacao.js"></script>
+<script src="dashboard.js"></script>
+<script src="tabela.js"></script>
+<script src="modais.js"></script>
+<script src="exportacao.js"></script>
+<script src="relatorio.js"></script>
+<script src="painel.js"></script>
+<script src="app.js"></script>
+<script>
+    // Confere se todos os arquivos da aplicação foram carregados
+    (function () {
+        var modulos = ['Config', 'Utils', 'Dica', 'Estado', 'BancoLocal', 'Execucao', 'Importacao', 'Filtros', 'Comparacao',
+                       'Dashboard', 'Tabela', 'Modais', 'Exportacao', 'Relatorio', 'Painel', 'App'];
+        var faltando = modulos.filter(function (m) {
+            try { return typeof eval(m) === 'undefined'; } catch (e) { return true; }
+        });
+        if (faltando.length) {
+            window.mostrarAviso('A aplicação não iniciou. Módulos ausentes: ' + faltando.join(', ') +
+                '. Coloque todos os arquivos .js e o style.css na mesma pasta do index.html.');
+        }
+    })();
+</script>
+</body>
+</html>

@@ -36,6 +36,8 @@ O **Sistema de Consulta de Reservas Orçamentárias** é uma aplicação web par
 * **Exportação para Excel**
 * **Tema claro e escuro.**
 
+##
+
 ## 💻 Tecnologias Utilizadas
 
 A aplicação é **100% Client-Side** (processamento local no navegador), sem servidor nem banco de dados externo. Os dados do Fiorilli não saem do computador do usuário.

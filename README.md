@@ -32,19 +32,9 @@ O **Sistema de Consulta de Reservas Orçamentárias** é uma aplicação web par
 
 ### Relatórios e exportações
 
-* **Relatórios em folha A4** (Consulta e Painel), com brasão da Prefeitura no cabeçalho, filtros aplicados e numeração de páginas. Use "Imprimir ou salvar PDF".
-* **Exportação para Excel** dos dados filtrados, das reservas paradas, da matriz e da comparação.
+* **Relatórios em folha A4** Use para "Imprimir ou salvar PDF".
+* **Exportação para Excel**
 * **Tema claro e escuro.**
-
-##
-
-## 🆕 Novidades da V4.2.x
-
-* **V4.2.4:** brasão da Prefeitura no cabeçalho da aplicação e dos relatórios.
-* **V4.2.3:** os filtros ativos passam a listar todos os itens selecionados, em vez de "3 selecionados" (vale para o Painel, os relatórios e as exportações).
-* **V4.2.2:** removidos os cards "Utilizado das reservas", "Saldo das reservas" e "Reservas paradas" do resumo do Painel. As reservas paradas continuam na seção própria do Painel.
-
-##
 
 ## 💻 Tecnologias Utilizadas
 
@@ -64,7 +54,7 @@ A aplicação é **100% Client-Side** (processamento local no navegador), sem se
 
 Não é preciso instalar nada. Funciona em qualquer navegador moderno (Google Chrome, Edge, Firefox etc.).
 
-**Online:** acesse https://rpdestro.github.io/consultaReservas/
+**Online:** acesse https://rpdestro.github.io/newConsultaReservas/
 
 **No computador:**
 

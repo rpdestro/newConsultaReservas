@@ -77,7 +77,7 @@ const Filtros = (() => {
         else if (ate) itens.push(`Período: até ${br(ate)}`);
         if (Estado.busca.trim()) itens.push(`Pesquisa: “${Estado.busca.trim()}”`);
         Object.entries(Estado.filtros).forEach(([campo, permitidos]) => {
-            const valor = permitidos.size === 1 ? rotulo(campo, [...permitidos][0]) : `${permitidos.size} selecionados`;
+            const valor = ordenar(campo, [...permitidos]).map(v => rotulo(campo, v)).join(', ');   // V4.2.3: lista todos os itens selecionados
             itens.push(`${Config.ROTULOS[campo] || campo}: ${valor}`);
         });
         return itens;

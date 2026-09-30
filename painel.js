@@ -207,40 +207,6 @@ const Painel = (() => {
 
     // -------------------------- RESUMO + FAIXA --------------------------
 
-    function indicadoresHTML(g) {
-        const pe = pctUso(g.tot);
-        const saldoParado = paradas.reduce((s, p) => s + p.reg.SaldoReserva, 0);
-        const { dias } = Execucao.obterParametros();
-        return `
-            <div class="resumo-indicadores">
-                <div class="ri" ${Dica.atributo({
-                    titulo: 'Utilizado das reservas',
-                    sub: 'Valor Reserva − Saldo Reserva, só das reservas originais (positivas)',
-                    cor: Execucao.corPct(pe),
-                    valor: moeda(g.tot.utilizado),
-                    pct: pe,
-                    linhas: [['Reservado originalmente', moeda(g.tot.original)], ['Utilizado', pctTxt(pe)], ['Saldo', moeda(g.tot.saldo)]]
-                })}>
-                    <span class="ri-rotulo">Utilizado das reservas</span>
-                    <strong class="ri-valor">${moeda(g.tot.utilizado)}</strong>
-                    <span class="ri-barra"><span style="width:${larguraBarra(pe)}%;background:${Execucao.corPct(pe)}"></span></span>
-                    <span class="ri-sub">${pctTxt(pe)} de ${compacta(g.tot.original)} reservados originalmente</span>
-                </div>
-                <div class="ri">
-                    <span class="ri-rotulo">Saldo das reservas</span>
-                    <strong class="ri-valor">${moeda(g.tot.saldo)}</strong>
-                    <span class="ri-sub">Ainda disponível nas reservas</span>
-                </div>
-                <button type="button" class="ri ri-alerta${paradas.length ? '' : ' ri-ok'}" data-acao="ir-paradas">
-                    <span class="ri-rotulo">Reservas paradas</span>
-                    <strong class="ri-valor">${num(paradas.length)}</strong>
-                    <span class="ri-sub">${paradas.length
-                        ? `${compacta(saldoParado)} de saldo, sem movimentação há mais de ${dias} dias`
-                        : `Nenhuma sem movimentação há mais de ${dias} dias`}</span>
-                </button>
-            </div>`;
-    }
-
     function resumoHTML(g, cores) {
         const partes = g.fontes.map(F => `${Utils.rotuloFonte(F.chave)} ${pctTxt(pct(F.valor, g.total))}`).join(', ');
         const estado = F => (fonteFoco === null ? '' : (fonteFoco === F.chave ? ' em-foco' : ' apagado'));
@@ -278,7 +244,6 @@ const Painel = (() => {
                             ${plural(g.fontes.length, 'fonte', 'fontes')} de recurso
                         </span>
                     </div>
-                    ${indicadoresHTML(g)}
                 </div>
                 <div class="faixa-bloco">
                     <div class="${classeFaixa}" role="group" aria-label="Participação no total: ${e(partes)}">${segmentos}</div>

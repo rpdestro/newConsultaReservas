@@ -5,7 +5,7 @@
    ========================================================================= */
 
 const Config = {
-    VERSAO: 'V4.2.1',
+    VERSAO: 'V4.2.4',
     LINHAS_POR_PAGINA: 50,
 
     // Chaves no localStorage: tema (atual) e dados da V3.0/V3.1 (apenas para migração;

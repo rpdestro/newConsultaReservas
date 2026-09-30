@@ -44,9 +44,12 @@
 <body>
 
 <header class="app-header">
-    <div class="header-title-container">
-        <span class="header-orgao">Departamento de Planejamento e Orçamento</span>
-        <h1>Consulta de reservas orçamentárias</h1>
+    <div class="header-brand">
+        <img src="brasao.png" alt="Brasão da Prefeitura de Botucatu" class="app-logo">
+        <div class="header-title-container">
+            <span class="header-orgao">Departamento de Planejamento e Orçamento</span>
+            <h1>Consulta de Reservas Orçamentárias</h1>
+        </div>
     </div>
     <div class="header-actions">
         <button type="button" id="btnDarkMode" class="btn-theme-toggle" title="Alternar tema">🌙 Escuro</button>
@@ -56,10 +59,10 @@
 
 <nav class="abas" role="tablist" aria-label="Seções da página">
     <button type="button" role="tab" class="aba" id="tabConsulta" data-aba="consulta"
-            aria-controls="abaConsulta" aria-selected="true">Consulta de reservas</button>
+            aria-controls="abaConsulta" aria-selected="true">Consulta de Reservas</button>
     <button type="button" role="tab" class="aba" id="tabPainel" data-aba="painel"
             aria-controls="abaPainel" aria-selected="false" tabindex="-1">
-        Painel por secretaria e fonte
+        Painel por Secretaria e Fonte
         <span class="aba-indicador oculto" id="indicadorFiltro" title="Há filtros ou pesquisa ativos">filtrado</span>
     </button>
 </nav>
@@ -69,7 +72,7 @@
     <div class="dashboard-layout">
         <div class="dashboard-left">
             <div class="card-banner roxo">
-                <h4>Valor total reservado (filtrado)</h4>
+                <h4>Valor Total Reservado (Filtrado)</h4>
                 <div class="valor" id="bannerValorReserva">R$ 0,00</div>
             </div>
 
@@ -85,7 +88,7 @@
 
     <div class="top-sections">
         <div class="import-section">
-            <h3 class="section-title">1. Carregar arquivo</h3>
+            <h3 class="section-title">1. Carregar Arquivo</h3>
             <!-- O <input> fica escondido visualmente, mas continua acessível pelo teclado (Tab + Enter) -->
             <label for="uploadExcel" class="dropzone" id="areaUpload">
                 <input type="file" id="uploadExcel" accept=".xls,.xlsx,.csv" class="visualmente-oculto">
@@ -121,7 +124,7 @@
 
     <div class="print-tabela-wrapper">
         <div class="table-header-flex">
-            <h3 class="table-heading">Dados do sistema Fiorilli</h3>
+            <h3 class="table-heading">Dados do Sistema Fiorilli</h3>
             <div class="busca-rapida" id="caixaBusca" role="search">
                 <svg class="busca-icone" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
                     <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>

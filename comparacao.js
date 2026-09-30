@@ -12,23 +12,22 @@
 
    Processos-chave: além do total geral, soma as reservas dos
    processos listados em Config.PROCESSOS_CHAVE, separadas por fonte de
-   recurso, com a Config.FONTE_DESTAQUE em evidência. Clicar em um processo
-   filtra as listas de Novas, Saíram e Alteradas.
+   recurso, com a Config.FONTE_DESTAQUE em evidência.
+
+   A tela mostra só os arquivos comparados e os processos-chave. As listas
+   de Novas, Saíram e Alteradas continuam sendo calculadas (usadas na
+   mensagem de conclusão e na exportação), mas não são exibidas.
    ========================================================================= */
 
 const Comparacao = (() => {
     const e = Utils.esc;
     const moeda = Utils.formatarMoeda;
     const $ = id => document.getElementById(id);
-    const LIMITE_TELA = 300;          // linhas por lista na tela (a exportação traz todas)
-
-    let aba = 'entraram';             // 'entraram' | 'sairam' | 'alteradas'
     let modo = 'auto';                // 'auto' | 'manual'
 
     // Bloco "Processos-chave"
     let metrica = 'saldo';            // 'saldo' | 'valor'
     let ocultarZeros = true;          // esconde processo/fonte sem variação nem movimento
-    let filtro = null;                // chave "processo|fonte" que filtra as listas (ou null)
     let abertas = new Set([String(Config.FONTE_DESTAQUE)]);   // fontes expandidas na tabela
 
     // Dados do modo manual (somente em memória)
@@ -196,12 +195,6 @@ const Comparacao = (() => {
         return iso ? new Date(iso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'data não registrada';
     }
 
-    function valorCampo(campo, valor) {
-        if (Config.CAMPOS_MONETARIOS.includes(campo)) return moeda(valor);
-        const t = Utils.texto(valor).trim();
-        return t === '' ? '(vazio)' : t;
-    }
-
     function variacao(antes, depois) {
         const d = depois - antes;
         if (Math.abs(d) < 0.005) return '<span class="cmp-igual">sem variação</span>';
@@ -216,104 +209,7 @@ const Comparacao = (() => {
                 <strong title="${e(a.arquivo)}">${e(a.arquivo)}</strong>
                 <small>Carregado em ${dataHora(a.carregadoEm)}, ${a.qtd.toLocaleString('pt-BR')} reservas</small>
             </div>`;
-        const linha = (rotulo, campo) => `
-            <tr><th scope="row">${rotulo}</th><td>${moeda(c.anterior[campo])}</td><td>${moeda(c.atual[campo])}</td>
-                <td>${variacao(c.anterior[campo], c.atual[campo])}</td></tr>`;
-
-        return `
-            <div class="cmp-arquivos">${bloco(rotA, c.anterior)}${bloco(rotB, c.atual)}</div>
-            <table class="tabela-simples cmp-totais">
-                <thead><tr><th scope="col">Total</th><th scope="col">${rotA}</th><th scope="col">${rotB}</th><th scope="col">Variação</th></tr></thead>
-                <tbody>${linha('Valor reservado', 'valor')}${linha('Saldo das reservas', 'saldo')}</tbody>
-            </table>`;
-    }
-
-    /** Separa reservas (valor positivo) de anulações (valor negativo). */
-    function detalheValores(lista) {
-        let reservado = 0;
-        let anulado = 0;
-        lista.forEach(r => {
-            const v = r.ValorReserva || 0;
-            if (v < 0) anulado -= v; else reservado += v;
-        });
-        return anulado > 0.004
-            ? `${moeda(reservado)} reservados<br>${moeda(anulado)} anulados`
-            : `${moeda(reservado)} reservados`;
-    }
-
-    function detalheAlteradas(c) {
-        const dif = c.alteradas.reduce((t, a) => t + ((a.depois.SaldoReserva || 0) - (a.antes.SaldoReserva || 0)), 0);
-        return `Saldo: ${variacao(0, dif)}<br>${c.iguais.toLocaleString('pt-BR')} sem alteração`;
-    }
-
-    function abasHTML(c) {
-        const botao = (id, rotulo, qtd, detalhe) => `
-            <button type="button" role="tab" class="cmp-aba cmp-aba-${id}" data-acao="aba-comparacao" data-aba="${id}"
-                    aria-selected="${aba === id}">
-                <span>${rotulo}</span>
-                <strong>${qtd.toLocaleString('pt-BR')}</strong>
-                <small>${detalhe}</small>
-            </button>`;
-        return `
-            <div class="cmp-abas" role="tablist" aria-label="Diferenças">
-                ${botao('entraram', 'Novas', c.entraram.length, detalheValores(c.entraram))}
-                ${botao('sairam', 'Saíram', c.sairam.length, detalheValores(c.sairam))}
-                ${botao('alteradas', 'Alteradas', c.alteradas.length, detalheAlteradas(c))}
-            </div>`;
-    }
-
-    function listaReservasHTML(lista, podeVer) {
-        if (!lista.length) return '<p class="cmp-vazio">Nenhuma reserva nesta lista.</p>';
-        const linhas = lista.slice(0, LIMITE_TELA).map(r => `
-            <tr>
-                <td class="txt-centro"><b>${e(r.Reserva)}</b></td>
-                <td class="txt-centro">${e(r.Data)}</td>
-                <td>${e(Utils.nomeSecretaria(r.UO))}</td>
-                <td class="txt-centro">${e(r.Fonte)}</td>
-                <td class="cmp-historico">${e(r.Historico)}</td>
-                <td class="num">${moeda(r.ValorReserva)}</td>
-                <td class="num">${moeda(r.SaldoReserva)}</td>
-            </tr>`).join('');
-        return `
-            ${avisoLimite(lista.length)}
-            <div class="cmp-rolagem"><table class="tabela-simples">
-                <thead><tr><th>Reserva</th><th>Data</th><th>Secretaria</th><th>Fonte</th><th>Histórico</th><th class="num">Valor reserva</th><th class="num">Saldo reserva</th></tr></thead>
-                <tbody>${linhas}</tbody>
-            </table></div>
-            ${podeVer ? '<button type="button" class="btn btn-sm-inline" data-acao="ver-consulta">Ver estas reservas na Consulta</button>' : ''}`;
-    }
-
-    function alteradasHTML(c, podeVer) {
-        if (!c.alteradas.length) return '<p class="cmp-vazio">Nenhuma reserva foi alterada.</p>';
-
-        const porCampo = {};
-        c.alteradas.forEach(a => a.campos.forEach(campo => { porCampo[campo] = (porCampo[campo] || 0) + 1; }));
-        const resumo = Object.entries(porCampo).sort((a, b) => b[1] - a[1])
-            .map(([campo, n]) => `<span class="chip-filtro">${e(Config.ROTULOS[campo])}: ${n.toLocaleString('pt-BR')}</span>`).join('');
-
-        const linhas = c.alteradas.slice(0, LIMITE_TELA).map(a => a.campos.map((campo, i) => {
-            const monetario = Config.CAMPOS_MONETARIOS.includes(campo);
-            const primeira = i === 0 ? `
-                <td rowspan="${a.campos.length}" class="txt-centro"><b>${e(a.depois.Reserva)}</b></td>
-                <td rowspan="${a.campos.length}">${e(Utils.nomeSecretaria(a.depois.UO))}</td>` : '';
-            return `
-                <tr class="${i === 0 ? 'cmp-primeira' : ''}">
-                    ${primeira}
-                    <td>${e(Config.ROTULOS[campo])}</td>
-                    <td class="${monetario ? 'num' : ''} cmp-antes">${e(valorCampo(campo, a.antes[campo]))}</td>
-                    <td class="${monetario ? 'num' : ''}">${e(valorCampo(campo, a.depois[campo]))}</td>
-                    <td class="num">${monetario ? variacao(a.antes[campo], a.depois[campo]) : ''}</td>
-                </tr>`;
-        }).join('')).join('');
-
-        return `
-            <div class="cmp-campos"><span class="painel-filtros-info">Campos alterados</span>${resumo}</div>
-            ${avisoLimite(c.alteradas.length)}
-            <div class="cmp-rolagem"><table class="tabela-simples">
-                <thead><tr><th>Reserva</th><th>Secretaria</th><th>Campo</th><th>Antes</th><th>Depois</th><th class="num">Diferença</th></tr></thead>
-                <tbody>${linhas}</tbody>
-            </table></div>
-            ${podeVer ? '<button type="button" class="btn btn-sm-inline" data-acao="ver-consulta">Ver estas reservas na Consulta</button>' : ''}`;
+        return `<div class="cmp-arquivos">${bloco(rotA, c.anterior)}${bloco(rotB, c.atual)}</div>`;
     }
 
     // ----------------------- TELA: PROCESSOS-CHAVE -----------------------
@@ -341,8 +237,6 @@ const Comparacao = (() => {
         return partes.length ? partes.join(' · ') : 'sem movimento';
     }
 
-    const chaveGrupo = g => `${g.processo}|${g.fonte === null ? '' : g.fonte}`;
-
     function controlesChaveHTML(c) {
         const [rotA, rotB] = rotulos(c);
         const botao = (id, rotulo) => `<button type="button" class="cmp-chave-opcao" data-acao="cmp-metrica" data-metrica="${id}" aria-pressed="${metrica === id}">${rotulo}</button>`;
@@ -364,31 +258,28 @@ const Comparacao = (() => {
     /** Faixa de destaque: um card por processo na fonte em destaque + total. */
     function faixaDestaqueHTML(pc) {
         const fd = pc.fonteDestaque;
-        const card = (titulo, g, chave) => {
+        const card = (titulo, g, total) => {
             if (!g || (g.antes.qtd === 0 && g.depois.qtd === 0)) {
                 return `<div class="cmp-chave-card cmp-chave-card-vazio"><span>${e(titulo)}</span><strong>—</strong><small>Sem reservas nesta fonte</small></div>`;
             }
-            const ativo = chave && filtro === chave;
-            const tag = chave ? 'button' : 'div';
-            const attrs = chave ? ` type="button" data-acao="cmp-filtro-chave" data-chave="${e(chave)}" aria-pressed="${ativo}" title="Filtrar as listas por este processo"` : '';
             return `
-                <${tag} class="cmp-chave-card${chave ? '' : ' cmp-chave-card-total'}"${attrs}>
+                <div class="cmp-chave-card${total ? ' cmp-chave-card-total' : ''}">
                     <span>${e(titulo)}</span>
                     <strong>${variacao(g.antes[metrica], g.depois[metrica])}</strong>
                     <small>${moeda(g.antes[metrica])} → ${moeda(g.depois[metrica])}</small>
                     <small class="cmp-chave-mov">${movimentoTexto(g)}</small>
-                </${tag}>`;
+                </div>`;
         };
         const daFonte = pc.grupos.filter(g => g.fonte === fd);
         const cards = pc.processos.map(p => {
             const g = daFonte.find(x => x.processo === p);
-            return card(`Processo ${p}`, g, g ? chaveGrupo(g) : null);
+            return card(`Processo ${p}`, g, false);
         }).join('');
         const total = daFonte.length ? somarGrupos(daFonte) : null;
         return `
             <div class="cmp-chave-destaque">
                 <div class="cmp-chave-destaque-titulo">${e(nomeFonte(fd))} <small>(destaque)</small></div>
-                <div class="cmp-chave-cards">${cards}${card(`Total ${nomeFonte(fd).split(' – ')[0]}`, total, null)}</div>
+                <div class="cmp-chave-cards">${cards}${card(`Total ${nomeFonte(fd).split(' – ')[0]}`, total, true)}</div>
             </div>`;
     }
 
@@ -436,18 +327,14 @@ const Comparacao = (() => {
                     <td class="num">${variacao(f.total.antes[metrica], f.total.depois[metrica])}</td>
                     <td class="cmp-chave-mov">${movimentoTexto(f.total)}</td>
                 </tr>`;
-            const linhas = aberta ? f.visiveis.map(g => {
-                const chave = chaveGrupo(g);
-                return `
-                <tr class="cmp-processo-linha${filtro === chave ? ' cmp-processo-ativo' : ''}">
-                    <td><button type="button" class="cmp-processo-botao" data-acao="cmp-filtro-chave" data-chave="${e(chave)}"
-                        aria-pressed="${filtro === chave}" title="Filtrar as listas por este processo e fonte">Processo ${e(g.processo)}</button></td>
+            const linhas = aberta ? f.visiveis.map(g => `
+                <tr class="cmp-processo-linha">
+                    <td>Processo ${e(g.processo)}</td>
                     <td class="num">${moeda(g.antes[metrica])}</td>
                     <td class="num">${moeda(g.depois[metrica])}</td>
                     <td class="num">${variacao(g.antes[metrica], g.depois[metrica])}</td>
                     <td class="cmp-chave-mov">${movimentoTexto(g)}</td>
-                </tr>`;
-            }).join('') : '';
+                </tr>`).join('') : '';
             return `<tbody>${cabecalho}${linhas}</tbody>`;
         }).join('');
 
@@ -472,43 +359,9 @@ const Comparacao = (() => {
             </section>`;
     }
 
-    /** Comparação restrita ao processo/fonte escolhido (para os banners e as listas). */
-    function visao(c) {
-        if (!filtro || !c.processosChave) return c;
-        const g = c.processosChave.grupos.find(x => chaveGrupo(x) === filtro);
-        if (!g) { filtro = null; return c; }
-        const ok = r => grupoDe(r) === filtro;
-        return {
-            ...c,
-            entraram: c.entraram.filter(ok),
-            sairam: c.sairam.filter(ok),
-            alteradas: c.alteradas.filter(a => ok(a.depois) || ok(a.antes)),
-            iguais: g.iguais
-        };
-    }
-
-    function filtroAtivoHTML(c) {
-        if (!filtro || !c.processosChave) return '';
-        const [processo, f] = filtro.split('|');
-        const fonte = f === '' ? null : Number(f);
-        return `
-            <div class="cmp-filtro-ativo">
-                <span class="painel-filtros-info">Listas filtradas:</span>
-                <span class="chip-filtro">Processo ${e(processo)} · ${e(nomeFonte(fonte))}</span>
-                <button type="button" class="link-acao" data-acao="cmp-limpar-filtro">Limpar filtro</button>
-            </div>`;
-    }
-
     /** Volta o bloco ao estado inicial (nova comparação, troca de modo). */
     function reiniciarChave() {
-        filtro = null;
         abertas = new Set([chaveFonte(Config.FONTE_DESTAQUE ?? null)]);
-    }
-
-    function avisoLimite(total) {
-        return total > LIMITE_TELA
-            ? `<p class="cmp-limite">Mostrando ${LIMITE_TELA} de ${total.toLocaleString('pt-BR')}. Use "Exportar comparação" para ver a lista completa.</p>`
-            : '';
     }
 
     function avisoRepetidas(c) {
@@ -534,22 +387,7 @@ const Comparacao = (() => {
             return;
         }
 
-        const podeVer = !ehManual(c);    // no modo manual os registros não estão na Consulta
-        const v = visao(c);              // listas restritas ao processo/fonte escolhido, se houver
-        let lista;
-        if (aba === 'entraram') {
-            lista = listaReservasHTML(v.entraram, podeVer);
-        } else if (aba === 'sairam') {
-            const nota = ehManual(c)
-                ? 'Estas reservas estão no Arquivo A, mas não no Arquivo B.'
-                : 'Estas reservas não estão no arquivo atual, por isso não aparecem na Consulta.';
-            lista = listaReservasHTML(v.sairam, false) + (v.sairam.length ? `<p class="cmp-limite">${nota}</p>` : '');
-        } else {
-            lista = alteradasHTML(v, podeVer);
-        }
-
-        alvo.innerHTML = arquivosHTML(c) + processosChaveHTML(c) + filtroAtivoHTML(c) + abasHTML(v) + avisoRepetidas(c) +
-            `<div class="cmp-lista" role="tabpanel">${lista}</div>`;
+        alvo.innerHTML = arquivosHTML(c) + processosChaveHTML(c) + avisoRepetidas(c);
     }
 
     // ---------------------------- MODO MANUAL ----------------------------
@@ -651,7 +489,6 @@ const Comparacao = (() => {
             manual.infoA = info(arquivoA, ra);
             manual.infoB = info(arquivoB, rb);
             manual.processando = false;
-            aba = 'entraram';
             recalcular();
         } catch (erro) {
             if (pedido !== manual.pedido) return;
@@ -697,7 +534,6 @@ const Comparacao = (() => {
 
     function abrir() {
         if (modo === 'auto' && !Estado.comparacao) modo = 'manual';
-        aba = 'entraram';
         reiniciarChave();
         desenhar();
         Modais.abrir('modalComparacao');
@@ -708,10 +544,7 @@ const Comparacao = (() => {
         const c = ativa();
         if (!alvo || !c) return;
         const acao = alvo.dataset.acao;
-        if (acao === 'aba-comparacao') {
-            aba = alvo.dataset.aba;
-            desenhar();
-        } else if (acao === 'cmp-metrica') {
+        if (acao === 'cmp-metrica') {
             metrica = alvo.dataset.metrica === 'valor' ? 'valor' : 'saldo';
             desenhar();
         } else if (acao === 'cmp-zeros') {
@@ -721,17 +554,6 @@ const Comparacao = (() => {
             const k = alvo.dataset.fonte;
             if (abertas.has(k)) abertas.delete(k); else abertas.add(k);
             desenhar();
-        } else if (acao === 'cmp-filtro-chave') {
-            filtro = filtro === alvo.dataset.chave ? null : alvo.dataset.chave;
-            desenhar();
-        } else if (acao === 'cmp-limpar-filtro') {
-            filtro = null;
-            desenhar();
-        } else if (acao === 'ver-consulta' && !ehManual(c)) {
-            const v = visao(c);
-            const regs = aba === 'entraram' ? v.entraram : v.alteradas.map(a => a.depois);
-            Modais.fechar('modalComparacao');
-            App.filtrarReservas(regs, true);
         }
     }
 
@@ -742,7 +564,6 @@ const Comparacao = (() => {
             radio.addEventListener('change', () => {
                 if (!radio.checked) return;
                 modo = radio.value;
-                aba = 'entraram';
                 reiniciarChave();
                 desenhar();
             });

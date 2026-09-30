@@ -28,9 +28,12 @@ const Relatorio = (() => {
         const agora = new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' });
         return `
             <header class="rel-cab">
-                <div class="rel-instituicao">
-                    <strong>${e(Config.ORGAO)}</strong>
-                    <span>${e(Config.DEPARTAMENTO)}</span>
+                <div class="rel-cab-esq">
+                    <img src="brasao.png" alt="Brasão da Prefeitura de Botucatu" class="rel-logo">
+                    <div class="rel-instituicao">
+                        <strong>${e(Config.ORGAO)}</strong>
+                        <span>${e(Config.DEPARTAMENTO)}</span>
+                    </div>
                 </div>
                 <div class="rel-emissao">Emitido em ${agora}</div>
             </header>

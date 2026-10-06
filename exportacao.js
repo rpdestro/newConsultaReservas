@@ -10,7 +10,7 @@ const Exportacao = (() => {
 
     function bibliotecaOk() {
         if (typeof XLSX !== 'undefined') return true;
-        alert('A biblioteca de Excel (SheetJS) não foi carregada. Verifique a internet ou use a cópia local (veja LEIAME.md).');
+        Avisos.notificar('A biblioteca de Excel (SheetJS) não foi carregada. Verifique a internet ou execute baixar-bibliotecas.bat para usar a cópia local (veja README.md).', 'erro');
         return false;
     }
 
@@ -61,16 +61,22 @@ const Exportacao = (() => {
     // --------------------------- RESERVAS ---------------------------
 
     function excel(dados) {
-        if (!dados.length) return alert('Não há dados para exportar.');
+        if (!dados.length) return Avisos.notificar('Não há dados para exportar.', 'alerta');
         if (!bibliotecaOk()) return;
 
-        const cabecalho = Config.CAMPOS.map(c => Config.ROTULOS[c]);
-        const linhas = dados.map(reg => Config.CAMPOS.map(campo => (campo === 'Data' ? (reg.DataISO || reg.Data) : reg[campo])));
-        const col = c => Config.CAMPOS.indexOf(c);
+        // V4.2.6: com dados do CSV, as informações adicionais entram no fim (todas, na ordem de
+        // Config.COLUNAS_SIMPLES, para que o arquivo exportado possa ser importado de volta)
+        const extras = Config.CAMPOS_EXTRAS || [];
+        const temExtras = dados.some(reg => extras.some(c => Utils.texto(reg[c]) !== ''));
+        const campos = temExtras ? Config.CAMPOS.concat(extras) : Config.CAMPOS;
+
+        const cabecalho = campos.map(c => Config.ROTULOS[c]);
+        const linhas = dados.map(reg => campos.map(campo => (campo === 'Data' ? (reg.DataISO || reg.Data) : Utils.texto(reg[campo]) === '' && extras.includes(campo) ? '' : reg[campo])));
+        const col = c => campos.indexOf(c);
         const ws = folha(cabecalho, linhas, {
             moeda: Config.CAMPOS_MONETARIOS.map(col),
             data: [col('Data')],
-            larguras: Config.CAMPOS.map(c => (c === 'Historico' ? 50 : c === 'NaturezaDespesa' ? 28 : c === 'Processo' ? 20 : 15))
+            larguras: campos.map(c => (c === 'Historico' || c === 'Programa' ? 50 : c === 'NaturezaDespesa' || c === 'CentroCusto' ? 28 : c === 'Processo' || c === 'Responsavel' ? 20 : 15))
         });
         salvar([['Reservas', ws]], 'Relatorio_Reservas');
     }
@@ -79,7 +85,7 @@ const Exportacao = (() => {
 
     /** Matriz Secretaria x Fonte (reservado, utilizado, %) + execução por secretaria e por fonte. */
     function matriz({ dados, g, secretarias }) {
-        if (!dados.length) return alert('Não há dados para exportar.');
+        if (!dados.length) return Avisos.notificar('Não há dados para exportar.', 'alerta');
         if (!bibliotecaOk()) return;
 
         const cab = ['Secretaria', ...g.fontes.map(F => nomeFonteCompleto(F.chave)), 'Total'];
@@ -116,7 +122,7 @@ const Exportacao = (() => {
 
     /** Lista de reservas paradas (para cobrança das secretarias). */
     function paradas(lista) {
-        if (!lista.length) return alert('Não há reservas paradas para exportar.');
+        if (!lista.length) return Avisos.notificar('Não há reservas paradas para exportar.', 'alerta');
         if (!bibliotecaOk()) return;
         const { dias, saldoMinimo } = Execucao.obterParametros();
 
@@ -138,7 +144,7 @@ const Exportacao = (() => {
     // -------------------------- COMPARAÇÃO --------------------------
 
     function comparacao(c) {
-        if (!c) return alert('Ainda não há comparação para exportar.');
+        if (!c) return Avisos.notificar('Ainda não há comparação para exportar.', 'alerta');
         if (!bibliotecaOk()) return;
 
         const listaReservas = lista => folha(

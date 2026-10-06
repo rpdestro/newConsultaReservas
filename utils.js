@@ -150,10 +150,38 @@ const Utils = (() => {
         return f ? `Fonte ${f}` : 'Fonte não informada';
     }
 
+    /** Código numérico da fonte: "1", "01" ou "01.110.0000" -> 1 (null se não houver). */
+    function codigoFonte(fonte) {
+        const m = texto(fonte).match(/^\s*0*(\d+)/);
+        return m ? parseInt(m[1], 10) : null;
+    }
+
     /** Nome da fonte pelo código inicial (ver Config.FONTES); '' se desconhecido. */
     function nomeFonte(fonte) {
-        const m = texto(fonte).match(/^\s*0*(\d+)/);
-        return (m && Config.FONTES && Config.FONTES[parseInt(m[1], 10)]) || '';
+        const cod = codigoFonte(fonte);
+        return (cod !== null && Config.FONTES && Config.FONTES[cod]) || '';
+    }
+
+    /** "Fonte 01 – Tesouro" a partir do código ou do texto da fonte; "Sem fonte" se vazio. */
+    function descricaoFonte(fonte) {
+        const cod = codigoFonte(fonte);
+        if (cod === null) return 'Sem fonte';
+        const nome = Config.FONTES && Config.FONTES[cod];
+        return `Fonte ${String(cod).padStart(2, '0')}${nome ? ` – ${nome}` : ''}`;
+    }
+
+    /** V4.2.6: cor fixa da fonte pelo código (ver Config.CORES_FONTES). */
+    function corFonte(fonte) {
+        const cod = codigoFonte(fonte);
+        return (cod !== null && Config.CORES_FONTES && Config.CORES_FONTES[cod]) || Config.COR_FONTE_PADRAO || '#64748b';
+    }
+
+    // ----------------------------- CORES -----------------------------
+
+    /** Converte "#rrggbb" + opacidade (0 a 1) em rgba(). */
+    function rgba(hex, alfa) {
+        const n = parseInt(hex.slice(1), 16);
+        return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alfa.toFixed(2)})`;
     }
 
     function formatarPercentual(valor) {
@@ -161,7 +189,7 @@ const Utils = (() => {
     }
 
     return {
-        rotuloFonte, nomeFonte, formatarPercentual,
+        rotuloFonte, nomeFonte, codigoFonte, descricaoFonte, corFonte, rgba, formatarPercentual,
         texto, esc, normalizarBusca, converterParaNumero, formatarMoeda, formatarDecimal, formatarMoedaCompacta,
         normalizarData, dataBRparaISO, dataISOparaBR, hojeISO, isoParaSerialExcel,
         codigoSecretaria, nomeSecretaria

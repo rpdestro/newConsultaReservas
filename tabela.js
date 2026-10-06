@@ -15,7 +15,7 @@ const Tabela = (() => {
         return `<span class="selo-parada" ${Dica.atributo({
             titulo: 'Reserva parada',
             sub: `Sem movimentação há ${Execucao.diasSemMovimento(reg)} dias (critério: mais de ${dias})`,
-            cor: '#dc2626',
+            cor: Config.COR_ALERTA,
             valor: Utils.formatarMoeda(reg.SaldoReserva) + ' de saldo',
             linhas: [
                 ['Última movimentação', Utils.dataISOparaBR(Execucao.ultimaMovimentacao(reg))],

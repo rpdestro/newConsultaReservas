@@ -31,6 +31,13 @@ const Modais = (() => {
     function abrirFicha(reg) {
         const vazio = v => (v === '' || v === null || v === undefined) ? 'N/A' : e(v);
 
+        // V4.2.6: informações adicionais (só aparecem quando a reserva veio do CSV do Fiorilli)
+        const largos = ['Programa', 'CentroCusto'];
+        const extras = (Config.CAMPOS_EXTRAS || []).filter(c => Utils.texto(reg[c]).trim() !== '');
+        const blocoExtras = extras.length ? `
+                <div class="ficha-extras-titulo">Informações adicionais (CSV do Fiorilli)</div>
+                ${extras.map(c => item(e(Config.ROTULOS[c] || c), e(reg[c]), largos.includes(c) ? 'full-width' : '')).join('')}` : '';
+
         document.getElementById('conteudoDetalhes').innerHTML = `
             <div class="detalhes-grid">
                 <div class="detalhe-item">
@@ -50,7 +57,7 @@ const Modais = (() => {
                 <div class="detalhe-item">
                     <span class="detalhe-label">Saldo Atual da Ficha</span>
                     <span class="detalhe-valor destaque">${Utils.formatarMoeda(reg.SaldoAtual)}</span>
-                </div>
+                </div>${blocoExtras}
             </div>`;
 
         document.body.classList.add('imprimindo-ficha');

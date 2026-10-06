@@ -16,12 +16,6 @@ const Painel = (() => {
     const ORDEM_NATURAL = { numeric: true, sensitivity: 'base' };
     const PASSO_PARADAS = 30;
 
-    // Tons escuros o bastante para texto branco legível
-    const CORES_FONTE = [
-        '#1d4ed8', '#be185d', '#047857', '#b45309', '#6d28d9',
-        '#0e7490', '#b91c1c', '#4d7c0f', '#a21caf', '#0f766e'
-    ];
-
     let ultimosDados = [];
     let pendente = true;             // dados mudaram enquanto a aba estava escondida
     let visivel = false;
@@ -48,12 +42,13 @@ const Painel = (() => {
 
     // ------------------------------ DADOS ------------------------------
 
-    /** Cor de cada fonte, estável mesmo quando os filtros mudam. */
+    /** Cor de cada fonte. V4.2.6: cor FIXA pelo código da fonte (Config.CORES_FONTES),
+        igual em qualquer arquivo, mesmo que alguma fonte não apareça no mês. */
     function mapaCores() {
-        const fontes = [...new Set(Estado.registros.map(r => r.Fonte))]
-            .sort((a, b) => a.localeCompare(b, undefined, ORDEM_NATURAL));
         const mapa = {};
-        fontes.forEach((f, i) => { mapa[f] = CORES_FONTE[i % CORES_FONTE.length]; });
+        Estado.registros.forEach(r => {
+            if (!(r.Fonte in mapa)) mapa[r.Fonte] = Utils.corFonte(r.Fonte);
+        });
         return mapa;
     }
 
@@ -337,7 +332,7 @@ const Painel = (() => {
         const par = paradasPorSec.get(S.sec);
         const alerta = par
             ? `<button type="button" class="selo-alerta" data-acao="paradas-sec" data-sec="${e(S.sec)}"
-                       ${Dica.atributo({ titulo: 'Reservas paradas', sub: nome, cor: '#dc2626', valor: moeda(par.saldo), linhas: [['Reservas', num(par.qtd)]], acao: 'Clique para ver a lista' })}>
+                       ${Dica.atributo({ titulo: 'Reservas paradas', sub: nome, cor: Config.COR_ALERTA, valor: moeda(par.saldo), linhas: [['Reservas', num(par.qtd)]], acao: 'Clique para ver a lista' })}>
                    ${plural(par.qtd, 'parada', 'paradas')}</button>`
             : '';
 
@@ -431,9 +426,9 @@ const Painel = (() => {
                     </div>
                 </div>
                 <p class="painel-dica">% utilizado = (valor reservado − saldo da reserva) ÷ valor reservado, considerando só as reservas originais; as reduções (valores negativos) já estão refletidas no saldo.
-                    <span class="leg-exec"><i style="background:#dc2626"></i>abaixo de 30%</span>
-                    <span class="leg-exec"><i style="background:#d97706"></i>30% a 70%</span>
-                    <span class="leg-exec"><i style="background:#059669"></i>70% ou mais</span></p>
+                    <span class="leg-exec"><i style="background:${Config.CORES_EXECUCAO.baixa}"></i>abaixo de ${Config.LIMITES_EXECUCAO[0]}%</span>
+                    <span class="leg-exec"><i style="background:${Config.CORES_EXECUCAO.media}"></i>${Config.LIMITES_EXECUCAO[0]}% a ${Config.LIMITES_EXECUCAO[1]}%</span>
+                    <span class="leg-exec"><i style="background:${Config.CORES_EXECUCAO.alta}"></i>${Config.LIMITES_EXECUCAO[1]}% ou mais</span></p>
                 <div class="matriz-rolagem">
                     <table class="tabela-exec">
                         <thead><tr>
@@ -527,12 +522,6 @@ const Painel = (() => {
 
     // ----------------------------- MATRIZ -----------------------------
 
-    /** Converte "#rrggbb" + opacidade em rgba(). */
-    function rgba(hex, alfa) {
-        const n = parseInt(hex.slice(1), 16);
-        return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alfa.toFixed(2)})`;
-    }
-
     function matrizHTML(g, cores) {
         const secs = ordenarSecretarias(g.secretarias.slice());
         const exec = modoMatriz === 'execucao';
@@ -555,7 +544,7 @@ const Painel = (() => {
                     : (maxPorFonte[F.chave] > 0 ? Math.max(sf.valor, 0) / maxPorFonte[F.chave] : 0);
                 const alfa = 0.08 + intensidade * 0.82;
                 return `<td><button type="button" class="mz-cel${alfa > 0.5 ? ' mz-cel-escura' : ''}"
-                            style="background:${rgba(cores[F.chave], alfa)}"
+                            style="background:${Utils.rgba(cores[F.chave], alfa)}"
                             data-acao="ver" data-sec="${e(S.sec)}" data-fonte="${e(F.chave)}"
                             ${dicaSecFonte(S, F.chave, sf, g, cores)}>${texto(sf)}</button></td>`;
             }).join('');

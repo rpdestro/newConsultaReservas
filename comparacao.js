@@ -65,6 +65,12 @@ const Comparacao = (() => {
 
     function diferente(campo, a, b) {
         if (Config.CAMPOS_MONETARIOS.includes(campo)) return Math.abs((a || 0) - (b || 0)) > 0.004;
+        // V4.2.5: no Histórico, espaços não contam. O XLS do Fiorilli quebra o texto com espaços
+        // extras ("ENCERRAM ENTO"); o CSV traz o texto corrido ("ENCERRAMENTO").
+        if (campo === 'Historico') {
+            const s = v => Utils.texto(v).replace(/\s+/g, '');
+            return s(a) !== s(b);
+        }
         return Utils.texto(a).trim() !== Utils.texto(b).trim();
     }
 
@@ -87,24 +93,12 @@ const Comparacao = (() => {
         return m ? m[0].replace(/\.+$/, '') : '';
     }
 
-    /** "01", "1" ou "01.110.0000" -> 1; vazio -> null. */
-    function codigoFonte(valor) {
-        const m = Utils.texto(valor).trim().match(/^\d+/);
-        return m ? parseInt(m[0], 10) : null;
-    }
-
     /** Chave "processo|fonte" da reserva, ou null se o processo não é acompanhado. */
     function grupoDe(reg) {
         const processo = codigoProcesso(reg.Processo);
         if (!(Config.PROCESSOS_CHAVE || []).includes(processo)) return null;
-        const fonte = codigoFonte(reg.Fonte);
+        const fonte = Utils.codigoFonte(reg.Fonte);
         return `${processo}|${fonte === null ? '' : fonte}`;
-    }
-
-    function nomeFonte(fonte) {
-        if (fonte === null) return 'Sem fonte';
-        const nome = Config.FONTES && Config.FONTES[fonte];
-        return `Fonte ${String(fonte).padStart(2, '0')}${nome ? ` – ${nome}` : ''}`;
     }
 
     const chaveFonte = f => (f === null ? 'sem' : String(f));
@@ -278,8 +272,8 @@ const Comparacao = (() => {
         const total = daFonte.length ? somarGrupos(daFonte) : null;
         return `
             <div class="cmp-chave-destaque">
-                <div class="cmp-chave-destaque-titulo">${e(nomeFonte(fd))} <small>(destaque)</small></div>
-                <div class="cmp-chave-cards">${cards}${card(`Total ${nomeFonte(fd).split(' – ')[0]}`, total, true)}</div>
+                <div class="cmp-chave-destaque-titulo">${e(Utils.descricaoFonte(fd))} <small>(destaque)</small></div>
+                <div class="cmp-chave-cards">${cards}${card(`Total ${Utils.descricaoFonte(fd).split(' – ')[0]}`, total, true)}</div>
             </div>`;
     }
 
@@ -319,7 +313,7 @@ const Comparacao = (() => {
                 <tr class="cmp-fonte-linha${destaque}">
                     <th scope="rowgroup">
                         <button type="button" class="cmp-fonte-botao" data-acao="cmp-grupo" data-fonte="${e(k)}" aria-expanded="${aberta}">
-                            <span class="cmp-seta" aria-hidden="true">${aberta ? '▾' : '▸'}</span>${e(nomeFonte(f.fonte))}
+                            <span class="cmp-seta" aria-hidden="true">${aberta ? '▾' : '▸'}</span>${e(Utils.descricaoFonte(f.fonte))}
                         </button>
                     </th>
                     <td class="num">${moeda(f.total.antes[metrica])}</td>
@@ -374,8 +368,8 @@ const Comparacao = (() => {
     function desenhar() {
         const c = ativa();
         $('tituloComparacao').textContent = modo === 'manual'
-            ? 'Comparação entre dois arquivos'
-            : 'Comparação com a importação anterior';
+            ? 'Comparação Entre Dois Arquivos'
+            : 'Comparação com a Importação Anterior';
         atualizarControles();
 
         const alvo = $('conteudoComparacao');
@@ -440,7 +434,9 @@ const Comparacao = (() => {
         if (mesmoArquivo(manual.arquivoA, manual.arquivoB)) {
             lista.push('Os dois campos parecem ter o mesmo arquivo.');
         }
-        if (manual.infoA.layout !== manual.infoB.layout) {
+        // V4.2.5: XLS e CSV do Fiorilli trazem os mesmos campos; não geram aviso entre si
+        const base = layout => String(layout || '').replace(' (CSV)', '');
+        if (base(manual.infoA.layout) !== base(manual.infoB.layout)) {
             lista.push(`Os arquivos têm layouts diferentes (A: ${manual.infoA.layout}; B: ${manual.infoB.layout}). ` +
                 'Colunas ausentes em um deles podem aparecer como alteradas.');
         }
@@ -573,8 +569,9 @@ const Comparacao = (() => {
         $('cmpArquivoB').addEventListener('change', ev => escolherArquivo('B', ev.target));
         $('btnCmpComparar').addEventListener('click', compararArquivos);
         $('btnCmpInverter').addEventListener('click', inverter);
-        $('btnCmpLimpar').addEventListener('click', () => {
-            if (Estado.comparacaoManual && !confirm('Descartar a comparação entre arquivos?')) return;
+        $('btnCmpLimpar').addEventListener('click', async () => {
+            if (Estado.comparacaoManual && !(await Avisos.confirmar('A comparação entre os dois arquivos será descartada.',
+                { titulo: 'Descartar comparação?', ok: 'Descartar', perigo: true }))) return;
             limparManual();
         });
     }

@@ -24,6 +24,8 @@
         };
         window.addEventListener('error', function (e) {
             var alvo = e.target || {};
+            // V4.2.6: cópia local opcional das bibliotecas (pasta lib/) — se faltar, usa a internet sem aviso
+            if (alvo.hasAttribute && alvo.hasAttribute('data-opcional')) return;
             if (alvo.tagName === 'SCRIPT' || alvo.tagName === 'LINK') {
                 window.mostrarAviso('Arquivo não carregado: ' + (alvo.src || alvo.href));
             } else if (e.message && e.message !== 'Script error.') {
@@ -33,13 +35,18 @@
         }, true);
     </script>
 
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=4.2.6.3">
 
-    <!-- Bibliotecas externas com VERSÃO FIXA (evita quebras por atualização automática).
-         Para uso sem internet, veja LEIAME.md. -->
-    <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <!-- Bibliotecas com VERSÃO FIXA (evita quebras por atualização automática).
+         V4.2.6: primeiro tenta a cópia LOCAL na pasta lib/ (funciona sem internet e com bloqueio de rede);
+         se o arquivo não existir, carrega da internet (CDN). Para criar a pasta lib/, execute
+         baixar-bibliotecas.bat uma vez (veja README.md). -->
+    <script src="lib/xlsx.full.min.js" data-opcional></script>
+    <script>window.XLSX || document.write('<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"><\/script>');</script>
+    <script src="lib/chart.umd.js" data-opcional></script>
+    <script>window.Chart || document.write('<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"><\/script>');</script>
+    <script src="lib/chartjs-plugin-datalabels.min.js" data-opcional></script>
+    <script>window.ChartDataLabels || document.write('<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"><\/script>');</script>
 </head>
 <body>
 
@@ -149,6 +156,11 @@
                 <button type="button" data-periodo="mes">Este mês</button>
                 <button type="button" data-periodo="ano">Este ano</button>
             </span>
+        </div>
+
+        <!-- V4.2.6: filtros das informações adicionais do CSV (montados por filtros.js; ocultos no XLS) -->
+        <div class="filtros-extras" id="filtrosExtras" role="group" aria-label="Filtros das informações adicionais do CSV" hidden>
+            <span class="periodo-rotulo" title="Informações que só o CSV do Fiorilli traz">Mais filtros</span>
         </div>
 
         <div class="table-container">
@@ -380,25 +392,26 @@
 <div id="avisoErro" class="aviso-erro" role="alert" hidden></div>
 
 <!-- Scripts da aplicação: devem estar NA MESMA PASTA do index.html (a ordem importa) -->
-<script src="config.js"></script>
-<script src="utils.js"></script>
-<script src="dica.js"></script>
-<script src="estado.js"></script>
-<script src="execucao.js"></script>
-<script src="importacao.js"></script>
-<script src="filtros.js"></script>
-<script src="comparacao.js"></script>
-<script src="dashboard.js"></script>
-<script src="tabela.js"></script>
-<script src="modais.js"></script>
-<script src="exportacao.js"></script>
-<script src="relatorio.js"></script>
-<script src="painel.js"></script>
-<script src="app.js"></script>
+<script src="config.js?v=4.2.6.3"></script>
+<script src="utils.js?v=4.2.6.3"></script>
+<script src="avisos.js?v=4.2.6.3"></script>
+<script src="dica.js?v=4.2.6.3"></script>
+<script src="estado.js?v=4.2.6.3"></script>
+<script src="execucao.js?v=4.2.6.3"></script>
+<script src="importacao.js?v=4.2.6.3"></script>
+<script src="filtros.js?v=4.2.6.3"></script>
+<script src="comparacao.js?v=4.2.6.3"></script>
+<script src="dashboard.js?v=4.2.6.3"></script>
+<script src="tabela.js?v=4.2.6.3"></script>
+<script src="modais.js?v=4.2.6.3"></script>
+<script src="exportacao.js?v=4.2.6.3"></script>
+<script src="relatorio.js?v=4.2.6.3"></script>
+<script src="painel.js?v=4.2.6.3"></script>
+<script src="app.js?v=4.2.6.3"></script>
 <script>
     // Confere se todos os arquivos da aplicação foram carregados
     (function () {
-        var modulos = ['Config', 'Utils', 'Dica', 'Estado', 'BancoLocal', 'Execucao', 'Importacao', 'Filtros', 'Comparacao',
+        var modulos = ['Config', 'Utils', 'Avisos', 'Dica', 'Estado', 'BancoLocal', 'Execucao', 'Importacao', 'Filtros', 'Comparacao',
                        'Dashboard', 'Tabela', 'Modais', 'Exportacao', 'Relatorio', 'Painel', 'App'];
         var faltando = modulos.filter(function (m) {
             try { return typeof eval(m) === 'undefined'; } catch (e) { return true; }
@@ -406,6 +419,13 @@
         if (faltando.length) {
             window.mostrarAviso('A aplicação não iniciou. Módulos ausentes: ' + faltando.join(', ') +
                 '. Coloque todos os arquivos .js e o style.css na mesma pasta do index.html.');
+        }
+        // V4.2.6: o "?v=" dos scripts acima deve acompanhar Config.VERSAO (força o navegador a
+        // baixar os arquivos novos a cada versão, sem precisar de Ctrl+F5)
+        var VERSAO_HTML = 'V4.2.6';
+        if (!faltando.length && Config.VERSAO !== VERSAO_HTML) {
+            window.mostrarAviso('Arquivos de versões diferentes: index.html ' + VERSAO_HTML + ' e config.js ' + Config.VERSAO +
+                '. Copie todos os arquivos da mesma versão e recarregue com Ctrl+F5.');
         }
     })();
 </script>

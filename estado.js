@@ -11,7 +11,7 @@ const Estado = {
     comparacao: null,                  // diferenças em relação à importação anterior (salva no navegador)
     comparacaoManual: null,            // comparação entre dois arquivos escolhidos (só na sessão, NÃO é salva)
     limiteLinhas: Config.LINHAS_POR_PAGINA,
-    info: null,                        // { arquivo, layout, carregadoEm, ignoradas }
+    info: null,                        // { arquivo, layout, carregadoEm, ignoradas, conferencia: { qtd, total } }
     persistenciaOk: true,
     _proximoId: 1,
 
@@ -27,6 +27,12 @@ const Estado = {
             reg[campo] = Config.CAMPOS_MONETARIOS.includes(campo)
                 ? Utils.converterParaNumero(dados[campo])
                 : Utils.texto(dados[campo]).trim();
+        });
+
+        // V4.2.6: informações adicionais (só do CSV). Gravadas apenas quando preenchidas.
+        (Config.CAMPOS_EXTRAS || []).forEach(campo => {
+            const v = Utils.texto(dados[campo]).trim();
+            if (v) reg[campo] = v;
         });
 
         reg.Data = Utils.normalizarData(dados.Data);
@@ -68,7 +74,8 @@ const Estado = {
     atualizar(id, dados) {
         const i = this.registros.findIndex(r => r._id === id);
         if (i < 0) return null;
-        this.registros[i] = this.normalizarRegistro({ ...dados, _id: id });
+        // Mantém as informações adicionais do CSV, que não aparecem no formulário de edição
+        this.registros[i] = this.normalizarRegistro({ ...this.registros[i], ...dados, _id: id });
         this.salvar();
         return this.registros[i];
     },
@@ -93,7 +100,6 @@ const Estado = {
         this.salvando = false;
         this.persistenciaOk = true;
         BancoLocal.apagar('principal').catch(erro => console.warn('Falha ao apagar dados salvos:', erro));
-        try { localStorage.removeItem(Config.CHAVE_DADOS); } catch (e) { /* ignorado */ }
     },
 
     // ----------------------- Persistência local -----------------------
@@ -129,22 +135,12 @@ const Estado = {
 
     async restaurar() {
         let salvo = null;
-        let migrado = false;
 
         try {
             salvo = await BancoLocal.ler('principal');
         } catch (erro) {
             console.warn('Não foi possível ler os dados salvos no navegador:', erro);
         }
-
-        // Migração: dados gravados pela V3.0/V3.1 no localStorage
-        if (!salvo) {
-            try {
-                const bruto = localStorage.getItem(Config.CHAVE_DADOS);
-                if (bruto) { salvo = JSON.parse(bruto); migrado = true; }
-            } catch (e) { /* ignorado */ }
-        }
-        try { localStorage.removeItem(Config.CHAVE_DADOS); } catch (e) { /* ignorado */ }
 
         if (!salvo || !Array.isArray(salvo.registros) || salvo.registros.length === 0) return false;
 
@@ -153,8 +149,6 @@ const Estado = {
         this.info = salvo.info || null;
         this.comparacao = salvo.comparacao || null;
         this._proximoId = this.registros.reduce((max, r) => Math.max(max, r._id), 0) + 1;
-
-        if (migrado) this.salvar();
         return true;
     },
 

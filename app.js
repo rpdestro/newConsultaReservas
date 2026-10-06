@@ -151,7 +151,15 @@ const App = (() => {
 
         if (total > 0 && Estado.info) {
             $('uploadTitulo').textContent = Estado.info.arquivo;
-            $('uploadDetalhe').textContent = `${total.toLocaleString('pt-BR')} reservas. Clique ou arraste outro arquivo para substituir.`;
+            // V4.2.6: conferência — quantidade e total DO ARQUIVO, para comparar com o relatório do Fiorilli
+            const conf = Estado.info.conferencia;
+            $('uploadDetalhe').textContent = conf
+                ? `${conf.qtd.toLocaleString('pt-BR')} reservas · total do arquivo ${Utils.formatarMoeda(conf.total)}. ` +
+                  'Clique ou arraste outro arquivo para substituir.'
+                : `${total.toLocaleString('pt-BR')} reservas. Clique ou arraste outro arquivo para substituir.`;
+            area.title = conf
+                ? 'Conferência: compare a quantidade e o total com o relatório do Fiorilli (valores do arquivo, antes de filtros e edições).'
+                : '';
             $('uploadBotao').textContent = 'Trocar';
         } else if (total > 0) {
             $('uploadTitulo').textContent = 'Registros incluídos manualmente';
@@ -243,13 +251,14 @@ const App = (() => {
         if (!arquivo || carregandoArquivo) return;
 
         if (!extensaoValida(arquivo.name)) {
-            alert(`O arquivo "${arquivo.name}" não é uma planilha aceita.\nUse o relatório em .xls, .xlsx ou .csv.`);
+            Avisos.notificar(`O arquivo "${arquivo.name}" não é uma planilha aceita. Use o relatório em .xls, .xlsx ou .csv.`, 'erro');
             return;
         }
 
         if (Estado.registros.length > 0 &&
-            !confirm('Substituir os dados atuais (incluindo inclusões e edições manuais) pelo novo arquivo?\n\n' +
-                'O que entrou, saiu ou mudou ficará disponível em "Comparar arquivos".')) {
+            !(await Avisos.confirmar('Os dados atuais (incluindo inclusões e edições manuais) serão substituídos pelo novo arquivo.\n\n' +
+                'O que entrou, saiu ou mudou ficará disponível em "Comparar arquivos".',
+                { titulo: `Carregar "${arquivo.name}"?`, ok: 'Substituir' }))) {
             return;
         }
 
@@ -262,11 +271,16 @@ const App = (() => {
                 arquivo: arquivo.name,
                 layout: resultado.layout,
                 carregadoEm: new Date().toISOString(),
-                ignoradas: resultado.ignoradas
+                ignoradas: resultado.ignoradas,
+                // V4.2.6: conferência da importação (quantidade e soma do Valor Reserva do arquivo)
+                conferencia: {
+                    qtd: resultado.registros.length,
+                    total: resultado.registros.reduce((s, r) => s + Utils.converterParaNumero(r.ValorReserva), 0)
+                }
             });
         } catch (erro) {
             console.error(erro);
-            alert(`Não foi possível ler o arquivo.\n\n${erro.message}`);
+            Avisos.notificar(`Não foi possível ler o arquivo.\n${erro.message}`, 'erro');
         } finally {
             carregandoArquivo = false;
             aposAlterarDados();   // também restaura a área de upload
@@ -314,17 +328,18 @@ const App = (() => {
         });
     }
 
-    function salvarFormulario() {
+    async function salvarFormulario() {
         const { id, dados } = Modais.lerFormulario();
 
         if (!dados.Reserva) {
-            alert('Informe o número da reserva.');
+            Avisos.notificar('Informe o número da reserva.', 'alerta');
             $('form_Reserva').focus();
             return;
         }
 
         const duplicada = Estado.registros.some(r => r.Reserva === dados.Reserva && r._id !== id);
-        if (duplicada && !confirm(`Já existe um registro com a reserva nº ${dados.Reserva}. Salvar mesmo assim?`)) return;
+        if (duplicada && !(await Avisos.confirmar(`Já existe um registro com a reserva nº ${dados.Reserva}.`,
+            { titulo: 'Reserva repetida', ok: 'Salvar mesmo assim' }))) return;
 
         if (id) Estado.atualizar(id, dados);
         else Estado.adicionar(dados);
@@ -333,17 +348,19 @@ const App = (() => {
         aposAlterarDados();
     }
 
-    function excluir(id) {
+    async function excluir(id) {
         const reg = Estado.buscar(id);
         if (!reg) return;
-        if (!confirm(`Excluir a reserva nº ${reg.Reserva} da consulta?`)) return;
+        if (!(await Avisos.confirmar(`A reserva nº ${reg.Reserva} será retirada da consulta.`,
+            { titulo: 'Excluir reserva?', ok: 'Excluir', perigo: true }))) return;
         Estado.remover(id);
         aposAlterarDados();
     }
 
-    function limparDados() {
-        if (Estado.registros.length === 0) return alert('Não há dados carregados para limpar.');
-        if (!confirm('Apagar TODOS os dados carregados, inclusive os salvos neste navegador?')) return;
+    async function limparDados() {
+        if (Estado.registros.length === 0) return Avisos.notificar('Não há dados carregados para limpar.', 'info');
+        if (!(await Avisos.confirmar('Todos os dados carregados serão apagados, inclusive os salvos neste navegador.',
+            { titulo: 'Apagar todos os dados?', ok: 'Apagar tudo', perigo: true }))) return;
         Estado.limparTudo();
         aposAlterarDados();
     }
@@ -494,7 +511,7 @@ const App = (() => {
 
         if (typeof XLSX === 'undefined') {
             window.mostrarAviso('A biblioteca de leitura de Excel (SheetJS) não carregou: não será possível abrir arquivos. ' +
-                'Verifique a internet/bloqueio da rede ou use a cópia local das bibliotecas (veja LEIAME.md).');
+                'Verifique a internet/bloqueio da rede ou execute baixar-bibliotecas.bat para usar a cópia local (veja README.md).');
         }
 
         ligarEventos();

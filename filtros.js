@@ -97,9 +97,36 @@ const Filtros = (() => {
         );
     }
 
+    /**
+     * V4.2.6: faixa "Mais filtros" com as informações adicionais do CSV (Status, Responsável...).
+     * Só aparece quando o arquivo traz esses dados; cada filtro só aparece se tiver valores.
+     */
+    function prepararFiltrosExtras() {
+        const faixa = document.getElementById('filtrosExtras');
+        if (!faixa) return;
+        const extras = Config.CAMPOS_EXTRAS || [];
+        if (!faixa.dataset.montada) {
+            faixa.insertAdjacentHTML('beforeend', extras.map(campo => `
+                <div class="fx-item" data-campo="${campo}">
+                    <span class="fx-rotulo">${Utils.esc(Config.ROTULOS[campo] || campo)}</span>
+                    <div id="filtro_${campo}" class="multi-select"></div>
+                </div>`).join(''));
+            faixa.dataset.montada = '1';
+        }
+        let algum = false;
+        extras.forEach(campo => {
+            const tem = Estado.registros.some(r => chave(r, campo) !== '');
+            faixa.querySelector(`.fx-item[data-campo="${campo}"]`).hidden = !tem;
+            if (!tem) delete Estado.filtros[campo];
+            algum = algum || tem;
+        });
+        faixa.hidden = !algum;
+    }
+
     /** (Re)constrói todos os dropdowns a partir dos dados carregados. */
     function gerar() {
-        Config.CAMPOS.forEach(campo => {
+        prepararFiltrosExtras();
+        Config.CAMPOS.concat(Config.CAMPOS_EXTRAS || []).forEach(campo => {
             const container = document.getElementById('filtro_' + campo);
             if (!container) return;
 

@@ -100,11 +100,12 @@ const Execucao = (() => {
         return original > 0 ? (valorUtilizado / original) * 100 : 0;
     }
 
-    /** Cor da barra de execução: vermelho (< 30%), âmbar (< 70%), verde. */
+    /** Cor da barra de execução (limites e cores em Config.LIMITES_EXECUCAO / CORES_EXECUCAO). */
     function corPct(pct) {
-        if (pct < 30) return '#dc2626';
-        if (pct < 70) return '#d97706';
-        return '#059669';
+        const [limBaixa, limMedia] = Config.LIMITES_EXECUCAO;
+        if (pct < limBaixa) return Config.CORES_EXECUCAO.baixa;
+        if (pct < limMedia) return Config.CORES_EXECUCAO.media;
+        return Config.CORES_EXECUCAO.alta;
     }
 
     return {

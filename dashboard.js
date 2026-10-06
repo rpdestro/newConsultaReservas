@@ -3,12 +3,7 @@
    ========================================================================= */
 
 const Dashboard = (() => {
-    const PALETA = [
-        '#4361ee', '#3a0ca3', '#7209b7', '#f72585', '#4cc9f0',
-        '#2ec4b6', '#ff9f1c', '#e71d36', '#fb8500', '#06d6a0',
-        '#118ab2', '#073b4c', '#8338ec', '#ff006e', '#8ac926',
-        '#1982c4', '#6a4c93', '#ff595e', '#ffca3a', '#10002b'
-    ];
+    const PALETA = Config.PALETA_GRAFICO;   // V4.2.6: cores do gráfico ficam no config.js
 
     let grafico = null;
     let ultimosDados = [];
@@ -40,29 +35,24 @@ const Dashboard = (() => {
 
     const pct = (parte, total) => (total > 0 ? (parte / total) * 100 : 0);
 
-    /** Agrupa por secretaria + fonte (cards da tela e relatório da Consulta). */
+    /**
+     * Agrupa por secretaria + fonte (cards da tela e relatório da Consulta).
+     * V4.2.6: reaproveita as somas de Painel.agrupar (um único cálculo para as duas abas).
+     */
     function agruparCards(dados) {
-        const grupos = {};
+        const g = Painel.agrupar(dados);
+        const lista = [];
         const totalSec = {};
-        const fontes = new Set();
-        let total = 0;
-        dados.forEach(reg => {
-            const sec = Utils.codigoSecretaria(reg.UO);
-            const fonte = reg.Fonte;
-            const chave = `${sec}|${fonte}`;
-            if (!grupos[chave]) grupos[chave] = { sec, fonte, valor: 0, qtd: 0 };
-            grupos[chave].valor += reg.ValorReserva;
-            grupos[chave].qtd++;
-            totalSec[sec] = (totalSec[sec] || 0) + reg.ValorReserva;
-            fontes.add(fonte);
-            total += reg.ValorReserva;
+        g.secretarias.forEach(S => {
+            totalSec[S.sec] = S.valor;
+            S.fontes.forEach((SF, fonte) => lista.push({ sec: S.sec, fonte, valor: SF.valor, qtd: SF.qtd }));
         });
 
         const opcoes = { numeric: true, sensitivity: 'base' };
-        const lista = Object.values(grupos).sort((a, b) =>
+        lista.sort((a, b) =>
             a.sec.localeCompare(b.sec, undefined, opcoes) || a.fonte.localeCompare(b.fonte, undefined, opcoes)
         );
-        return { lista, total, totalSec, secretarias: Object.keys(totalSec).length, fontes: fontes.size };
+        return { lista, total: g.total, totalSec, secretarias: g.secretarias.length, fontes: g.fontes.length };
     }
 
     function renderizarCards(dados) {

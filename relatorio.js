@@ -58,7 +58,7 @@ const Relatorio = (() => {
 
     function consulta() {
         const dados = Filtros.aplicar(Estado.registros);
-        if (!dados.length) return alert('Não há dados para o relatório. Carregue um arquivo ou ajuste os filtros.');
+        if (!dados.length) return Avisos.notificar('Não há dados para o relatório. Carregue um arquivo ou ajuste os filtros.', 'alerta');
 
         const { lista, total, secretarias, fontes } = Dashboard.agruparCards(dados);
         const cores = Painel.cores();
@@ -171,11 +171,6 @@ const Relatorio = (() => {
         return `<section class="rel-secao"><h2>Por Secretaria</h2><div class="rel-grade rel-grade-2">${cards}</div></section>`;
     }
 
-    function rgba(hex, alfa) {
-        const n = parseInt(hex.slice(1), 16);
-        return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alfa.toFixed(2)})`;
-    }
-
     function matrizPainel(secretarias, g, cores) {
         const maxPorFonte = {};
         g.fontes.forEach(F => { maxPorFonte[F.chave] = Math.max(0, ...[...F.secs.values()]); });
@@ -186,7 +181,7 @@ const Relatorio = (() => {
                 const sf = S.fontes.get(F.chave);
                 if (!sf) return '<td class="rel-vazio">–</td>';
                 const intensidade = maxPorFonte[F.chave] > 0 ? Math.max(sf.valor, 0) / maxPorFonte[F.chave] : 0;
-                return `<td style="background:${rgba(cores[F.chave], 0.05 + intensidade * 0.3)}">${decimal(sf.valor)}</td>`;
+                return `<td style="background:${Utils.rgba(cores[F.chave], 0.05 + intensidade * 0.3)}">${decimal(sf.valor)}</td>`;
             }).join('');
             return `<tr><th scope="row">${e(Utils.nomeSecretaria(S.sec))}</th>${celulas}<td class="rel-total">${decimal(S.valor)}</td></tr>`;
         }).join('');
@@ -208,7 +203,7 @@ const Relatorio = (() => {
 
     function painel() {
         const r = Painel.dadosRelatorio();
-        if (!r.dados.length) return alert('Não há dados para o relatório. Carregue um arquivo ou ajuste os filtros.');
+        if (!r.dados.length) return Avisos.notificar('Não há dados para o relatório. Carregue um arquivo ou ajuste os filtros.', 'alerta');
         const { g, cores, secretarias, dados } = r;
 
         const html = cabecalho('Valor Reservado por Secretaria e Fonte de Recurso') +

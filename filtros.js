@@ -67,8 +67,11 @@ const Filtros = (() => {
             !!(Estado.periodo.de || Estado.periodo.ate);
     }
 
-    /** Filtros ativos em texto simples (painel e relatórios). Ex.: ["Período: 01/01/2026 a 31/03/2026"] */
-    function descrever() {
+    /**
+     * Filtros ativos em texto simples (painel e relatórios). Ex.: ["Período: 01/01/2026 a 31/03/2026"]
+     * V4.2.6: cada coluna mostra no máximo `limite` valores; o restante vira "e mais N (T selecionados)".
+     */
+    function descrever(limite = 5) {
         const itens = [];
         const { de, ate } = Estado.periodo;
         const br = Utils.dataISOparaBR;
@@ -77,7 +80,11 @@ const Filtros = (() => {
         else if (ate) itens.push(`Período: até ${br(ate)}`);
         if (Estado.busca.trim()) itens.push(`Pesquisa: “${Estado.busca.trim()}”`);
         Object.entries(Estado.filtros).forEach(([campo, permitidos]) => {
-            const valor = ordenar(campo, [...permitidos]).map(v => rotulo(campo, v)).join(', ');   // V4.2.3: lista todos os itens selecionados
+            const valores = ordenar(campo, [...permitidos]).map(v => rotulo(campo, v));
+            const resto = valores.length - limite;
+            const valor = resto > 0
+                ? `${valores.slice(0, limite).join(', ')} e mais ${resto.toLocaleString('pt-BR')} (${valores.length.toLocaleString('pt-BR')} selecionados)`
+                : valores.join(', ');
             itens.push(`${Config.ROTULOS[campo] || campo}: ${valor}`);
         });
         return itens;

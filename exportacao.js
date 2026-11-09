@@ -47,7 +47,7 @@ const Exportacao = (() => {
 
     /** Aba "Informações": arquivo de origem, emissão e filtros usados. */
     function folhaInformacoes(titulo) {
-        const filtros = Filtros.descrever();
+        const filtros = Filtros.descrever(100);   // planilha comporta mais detalhes (célula do Excel vai até 32.767 caracteres)
         const linhas = [
             ['Relatório', titulo],
             ['Órgão', `${Config.ORGAO} - ${Config.DEPARTAMENTO}`],

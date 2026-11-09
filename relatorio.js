@@ -232,9 +232,59 @@ const Relatorio = (() => {
         $('btnRvImprimir').focus();
     }
 
+    // V4.2.6: a impressão é feita num iframe que contém só a folha do relatório.
+    // Com window.print() o navegador refazia o layout da página inteira (tabela,
+    // gráficos, painel), o que deixava a janela de impressão muito lenta.
+    function removerQuadro() {
+        const quadro = $('rvQuadroImpressao');
+        if (quadro) quadro.remove();
+    }
+
+    function imprimir() {
+        const botao = $('btnRvImprimir');
+        if (botao.disabled) return;
+        removerQuadro();
+
+        const css = document.querySelector('link[rel="stylesheet"][href*="style.css"]');
+        const quadro = document.createElement('iframe');
+        quadro.id = 'rvQuadroImpressao';
+        quadro.tabIndex = -1;
+        quadro.setAttribute('aria-hidden', 'true');
+        quadro.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;opacity:0;pointer-events:none';
+
+        const textoBotao = botao.textContent;
+        botao.disabled = true;
+        botao.textContent = 'Preparando...';
+        const liberar = () => { botao.disabled = false; botao.textContent = textoBotao; };
+
+        quadro.addEventListener('load', () => {
+            // Pequena espera para o navegador concluir o layout antes de abrir a janela
+            setTimeout(() => {
+                try {
+                    quadro.contentWindow.focus();
+                    quadro.contentWindow.print();
+                } catch (erro) {
+                    console.warn('Impressão pelo quadro falhou; usando a página inteira.', erro);
+                    window.print();
+                } finally {
+                    liberar();
+                }
+            }, 50);
+        }, { once: true });
+
+        quadro.srcdoc = `<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="UTF-8">
+<base href="${e(document.baseURI)}">
+<title>${e(document.title)}</title>
+${css ? `<link rel="stylesheet" href="${e(css.href)}">` : ''}
+</head><body class="modo-relatorio"><div id="areaRelatorio"><div class="rv-folha">${$('rvFolha').innerHTML}</div></div></body></html>`;
+        document.body.appendChild(quadro);
+    }
+
     function fechar() {
         if (!aberto) return;
         aberto = false;
+        removerQuadro();
         $('areaRelatorio').hidden = true;
         $('rvFolha').innerHTML = '';
         document.body.classList.remove('modo-relatorio');
@@ -242,7 +292,7 @@ const Relatorio = (() => {
     }
 
     function iniciar() {
-        $('btnRvImprimir').addEventListener('click', () => window.print());
+        $('btnRvImprimir').addEventListener('click', imprimir);
         $('btnRvFechar').addEventListener('click', fechar);
         document.addEventListener('keydown', evento => {
             if (evento.key === 'Escape' && aberto) fechar();
